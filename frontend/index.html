@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Training Platform</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="main-header">
+        <h1>Interview Training Platform</h1>
+        <p class="subtitle">Select one character to interview. Once selected, you cannot change characters during this session.</p>
+    </header>
+
+    <main>
+        <div class="container">
+            <div class="character-grid">
+                <!-- Ethan Reeves - Student -->
+                <div class="character-card">
+                    <div class="character-header">
+                        <h3 class="character-name">Ethan Reeves</h3>
+                        <span class="character-role">Student</span>
+                    </div>
+                    <p class="character-description">A high school student who may have information about recent concerning incidents on campus.</p>
+                    <button class="start-button" onclick="startInterview('Ethan Reeves', 'Student')">Start Interview</button>
+                </div>
+
+                <!-- Lily Reeves - Mother -->
+                <div class="character-card">
+                    <div class="character-header">
+                        <h3 class="character-name">Lily Reeves</h3>
+                        <span class="character-role">Mother</span>
+                    </div>
+                    <p class="character-description">The concerned mother of Ethan Reeves, seeking to understand what's happening at school.</p>
+                    <button class="start-button" onclick="startInterview('Lily Reeves', 'Mother')">Start Interview</button>
+                </div>
+
+                <!-- Andrew Wright - Student -->
+                <div class="character-card">
+                    <div class="character-header">
+                        <h3 class="character-name">Andrew Wright</h3>
+                        <span class="character-role">Student</span>
+                    </div>
+                    <p class="character-description">A student with connections to various social groups who may provide valuable insights.</p>
+                    <button class="start-button" onclick="startInterview('Andrew Wright', 'Student')">Start Interview</button>
+                </div>
+
+                <!-- Taylor Gibbons - School Counselor -->
+                <div class="character-card">
+                    <div class="character-header">
+                        <h3 class="character-name">Taylor Gibbons</h3>
+                        <span class="character-role">School Counselor</span>
+                    </div>
+                    <p class="character-description">An experienced school counselor who works closely with students and their families.</p>
+                    <button class="start-button" onclick="startInterview('Taylor Gibbons', 'School Counselor')">Start Interview</button>
+                </div>
+
+                <!-- Sam Harding - School Resource Officer -->
+                <div class="character-card">
+                    <div class="character-header">
+                        <h3 class="character-name">Sam Harding</h3>
+                        <span class="character-role">School Resource Officer</span>
+                    </div>
+                    <p class="character-description">The school's resource officer responsible for safety and security on campus.</p>
+                    <button class="start-button" onclick="startInterview('Sam Harding', 'School Resource Officer')">Start Interview</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

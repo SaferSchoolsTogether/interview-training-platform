@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Session</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="chat-page">
+    <!-- Fixed Header with Character Info -->
+    <header class="chat-header-bar">
+        <div class="header-left">
+            <div class="character-info">
+                <h1 id="characterName">Loading...</h1>
+                <span class="character-role-badge" id="characterRole"></span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="reset-button" id="resetButton">Reset Interview</button>
+        </div>
+    </header>
+
+    <!-- Chat Messages Container -->
+    <main class="chat-main">
+        <div class="chat-messages-container" id="chatMessages">
+            <!-- Welcome message will be inserted here -->
+            <!-- Chat messages will appear here dynamically -->
+        </div>
+    </main>
+
+    <!-- Fixed Input Area at Bottom -->
+    <footer class="chat-input-area">
+        <div class="input-container">
+            <textarea
+                id="userInput"
+                placeholder="Type your message here..."
+                rows="2"
+                maxlength="500"
+            ></textarea>
+            <div class="input-controls">
+                <span class="char-counter" id="charCounter">0 / 500</span>
+                <button class="send-button" id="sendButton">
+                    <span>Send</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <script src="chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Interview Training Platform</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h1>Admin Login</h1>
+            <p class="login-subtitle">Interview Training Platform</p>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="Enter admin password"
+                        required
+                    >
+                </div>
+                <button type="submit" class="login-button">Login</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboardScreen" class="dashboard-container" style="display: none;">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1>Admin Dashboard</h1>
+                <span class="subtitle">Interview Monitoring System</span>
+            </div>
+            <div class="header-right">
+                <button class="refresh-button" id="refreshButton">
+                    <span>Refresh</span>
+                </button>
+                <button class="logout-button" id="logoutButton">Logout</button>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-label">Active Sessions</div>
+                <div class="stat-value" id="totalSessions">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Auto-Refresh</div>
+                <div class="stat-value">5s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Last Updated</div>
+                <div class="stat-value" id="lastUpdated">--:--:--</div>
+            </div>
+        </div>
+
+        <!-- Sessions Grid -->
+        <main class="dashboard-main">
+            <div class="sessions-header">
+                <h2>Active Interview Sessions</h2>
+            </div>
+            <div id="sessionsGrid" class="sessions-grid">
+                <!-- Session cards will be inserted here -->
+            </div>
+            <div id="emptyState" class="empty-state">
+                <p>No active sessions</p>
+                <span>Sessions will appear here when users start interviews</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Conversation Modal -->
+    <div id="conversationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modalCharacterName">Character Name</h2>
+                    <span class="modal-subtitle" id="modalSessionId">Session ID</span>
+                </div>
+                <button class="close-modal" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="conversation-details">
+                    <div class="detail-item">
+                        <strong>Role:</strong>
+                        <span id="modalCharacterRole">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Messages:</strong>
+                        <span id="modalMessageCount">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Rapport Level:</strong>
+                        <span id="modalRapportLevel" class="rapport-badge">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Started:</strong>
+                        <span id="modalStartTime">--</span>
+                    </div>
+                </div>
+                <div class="conversation-transcript" id="conversationTranscript">
+                    <!-- Messages will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
