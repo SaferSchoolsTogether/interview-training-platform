@@ -3,7 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const OpenAI = require('openai');
-const characters = require('./characters');
+const { getCharacterSystemMessage, getCharacterMetadata, getAllCharacters } = require('./characters');
+const { analyzeMessage, getInitialScore, getLevelDescription } = require('./rapportTracker');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -36,12 +37,15 @@ app.post('/api/start-session', (req, res) => {
   const { characterName, characterRole, sessionId } = req.body;
 
   const startTime = new Date().toISOString();
+  const initialRapportScore = getInitialScore(); // Start at 20 (middle of low range)
 
   // Initialize conversation memory for this session
   conversationMemory.set(sessionId, {
     characterName: characterName,
     messages: [],
-    rapportLevel: 'low', // Start at low rapport
+    rapportScore: initialRapportScore, // Numeric score (0-100)
+    rapportLevel: 'low', // Descriptive level (low/medium/high)
+    rapportHistory: [{ score: initialRapportScore, level: 'low', timestamp: startTime }], // Track score over time
     messageCount: 0
   });
 
@@ -51,7 +55,9 @@ app.post('/api/start-session', (req, res) => {
     characterName: characterName,
     characterRole: characterRole,
     messages: [],
+    rapportScore: initialRapportScore,
     rapportLevel: 'low',
+    rapportHistory: [{ score: initialRapportScore, level: 'low', timestamp: startTime }],
     startTime: startTime,
     lastActivity: startTime,
     messageCount: 0
@@ -62,16 +68,20 @@ app.post('/api/start-session', (req, res) => {
   console.log('Session ID:', sessionId);
   console.log('Character Name:', characterName);
   console.log('Character Role:', characterRole);
+  console.log('Initial Rapport Score:', initialRapportScore);
+  console.log('Rapport Level:', 'low');
   console.log('Timestamp:', startTime);
   console.log('=====================================\n');
 
+  // Get character metadata
+  const characterMeta = getCharacterMetadata(characterName);
+
   // Return success response with greeting
-  const character = characters[characterName];
   res.json({
     success: true,
     message: 'Session started',
     sessionId: sessionId,
-    greeting: character ? character.greeting : null,
+    greeting: characterMeta ? characterMeta.greeting : null,
     character: {
       name: characterName,
       role: characterRole
@@ -93,63 +103,99 @@ app.post('/api/send-message', async (req, res) => {
       });
     }
 
-    // Get character definition
-    const character = characters[characterName];
-    if (!character) {
+    // Verify character exists
+    try {
+      getCharacterMetadata(characterName);
+    } catch (error) {
       return res.status(400).json({
         success: false,
         error: 'Character not found.'
       });
     }
 
-    // Log the message to console
+    const timestamp = new Date().toISOString();
+
+    // ========================================================================
+    // RAPPORT ANALYSIS - Analyze user's message using MI-based rapport tracker
+    // ========================================================================
+
+    const rapportAnalysis = analyzeMessage(message, sessionData.rapportScore);
+
+    // Update rapport score and level
+    const previousScore = sessionData.rapportScore;
+    const previousLevel = sessionData.rapportLevel;
+
+    sessionData.rapportScore = rapportAnalysis.newScore;
+    sessionData.rapportLevel = rapportAnalysis.newLevel;
+
+    // Add to rapport history
+    sessionData.rapportHistory.push({
+      score: rapportAnalysis.newScore,
+      level: rapportAnalysis.newLevel,
+      scoreChange: rapportAnalysis.scoreChange,
+      changes: rapportAnalysis.changes,
+      reasoning: rapportAnalysis.reasoning,
+      timestamp: timestamp
+    });
+
+    // Log rapport change to console for admin monitoring
     console.log('=== New Message Received ===');
     console.log('Session ID:', sessionId);
     console.log('Character:', characterName);
     console.log('User Message:', message);
-    console.log('Rapport Level:', sessionData.rapportLevel);
+    console.log('----------------------------');
+    console.log('RAPPORT ANALYSIS:');
+    console.log('Previous Score:', previousScore, `(${previousLevel})`);
+    console.log('New Score:', rapportAnalysis.newScore, `(${rapportAnalysis.newLevel})`);
+    console.log('Change:', rapportAnalysis.scoreChange > 0 ? `+${rapportAnalysis.scoreChange}` : rapportAnalysis.scoreChange);
+    console.log('Reasoning:', rapportAnalysis.reasoning);
+    if (rapportAnalysis.changes.length > 0) {
+      console.log('Detected Techniques:');
+      rapportAnalysis.changes.forEach(change => {
+        console.log(`  - ${change.technique}: ${change.points > 0 ? '+' : ''}${change.points}`);
+      });
+    }
+    console.log('----------------------------');
     console.log('Message Count:', sessionData.messageCount + 1);
-    console.log('Timestamp:', new Date().toISOString());
+    console.log('Timestamp:', timestamp);
     console.log('============================\n');
 
-    const timestamp = new Date().toISOString();
-
-    // Add user message to session memory
+    // Add user message to session memory (with rapport metadata)
     sessionData.messages.push({
       role: 'user',
       content: message
     });
     sessionData.messageCount++;
 
-    // Update enhanced session storage
+    // Update enhanced session storage for admin dashboard
     const session = sessions.get(sessionId);
     if (session) {
       session.messages.push({
         speaker: 'User',
         content: message,
-        timestamp: timestamp
+        timestamp: timestamp,
+        rapportChange: rapportAnalysis.scoreChange,
+        rapportReasoning: rapportAnalysis.reasoning,
+        rapportChanges: rapportAnalysis.changes,
+        rapportScoreAfter: rapportAnalysis.newScore,
+        rapportLevelAfter: rapportAnalysis.newLevel
       });
       session.lastActivity = timestamp;
       session.messageCount = sessionData.messageCount;
+      session.rapportScore = rapportAnalysis.newScore;
+      session.rapportLevel = rapportAnalysis.newLevel;
+      session.rapportHistory = sessionData.rapportHistory;
     }
 
-    // Simple rapport calculation (we'll make this smarter later)
-    // For now: low (0-3 messages), medium (4-7), high (8+)
-    if (sessionData.messageCount >= 8) {
-      sessionData.rapportLevel = 'high';
-    } else if (sessionData.messageCount >= 4) {
-      sessionData.rapportLevel = 'medium';
-    }
+    // ========================================================================
+    // BUILD OPENAI PROMPT with rapport-aware character system message
+    // ========================================================================
 
-    // Build messages for OpenAI
-    // Include system prompt with rapport level indicator
+    const systemMessageContent = getCharacterSystemMessage(characterName, sessionData.rapportLevel);
+
     const systemMessage = {
       role: 'system',
-      content: `${character.systemPrompt}
-
-CURRENT RAPPORT LEVEL: ${sessionData.rapportLevel.toUpperCase()}
-
-Adjust your responses according to the rapport level. At ${sessionData.rapportLevel} rapport, you should behave as described in the ${sessionData.rapportLevel.toUpperCase()} RAPPORT section of your character description.`
+      content: systemMessageContent
     };
 
     // Get last 15 messages for context (to avoid token limits)
@@ -194,13 +240,14 @@ Adjust your responses according to the rapport level. At ${sessionData.rapportLe
     console.log('AI Response generated successfully');
     console.log('Response length:', aiResponse.length, 'characters\n');
 
-    // Return response
+    // Return response (DO NOT include rapport data for user-facing endpoint)
     res.json({
       success: true,
       response: aiResponse,
       sessionId: sessionId,
-      rapportLevel: sessionData.rapportLevel,
       messageCount: sessionData.messageCount
+      // Note: rapportScore and rapportLevel are intentionally omitted
+      // Users should not see rapport information - only admins can
     });
 
   } catch (error) {
@@ -243,16 +290,17 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
-// Get all active sessions
+// Get all active sessions (ADMIN ONLY - includes rapport data)
 app.get('/api/admin/sessions', (req, res) => {
   try {
-    // Convert sessions Map to array with metadata only (no full message content)
+    // Convert sessions Map to array with metadata including rapport info
     const sessionList = Array.from(sessions.values()).map(session => ({
       sessionId: session.sessionId,
       characterName: session.characterName,
       characterRole: session.characterRole,
       messageCount: session.messageCount,
-      rapportLevel: session.rapportLevel,
+      rapportScore: session.rapportScore, // Numeric score 0-100
+      rapportLevel: session.rapportLevel, // low/medium/high
       startTime: session.startTime,
       lastActivity: session.lastActivity
     }));

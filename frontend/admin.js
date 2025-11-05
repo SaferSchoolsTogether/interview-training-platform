@@ -1,3 +1,9 @@
+/**
+ * Admin Dashboard JavaScript
+ * Includes comprehensive rapport tracking visualization
+ * Based on Motivational Interviewing (MI) principles
+ */
+
 // Global variables
 let isLoggedIn = false;
 let autoRefreshInterval = null;
@@ -29,6 +35,10 @@ function setupEventListeners() {
         }
     });
 }
+
+// ==============================================================================
+// AUTHENTICATION
+// ==============================================================================
 
 // Handle login
 async function handleLogin(e) {
@@ -85,6 +95,10 @@ function showLogin() {
     document.getElementById('dashboardScreen').style.display = 'none';
 }
 
+// ==============================================================================
+// SESSION MANAGEMENT
+// ==============================================================================
+
 // Fetch all sessions
 async function fetchSessions() {
     if (!isLoggedIn) return;
@@ -122,24 +136,36 @@ function displaySessions(sessions) {
     });
 }
 
-// Create session card
+// Create session card with rapport color coding
 function createSessionCard(session) {
     const card = document.createElement('div');
     card.className = 'session-card';
 
+    // Add rapport-based color coding to the entire card
     const rapportClass = getRapportClass(session.rapportLevel);
+    card.classList.add(rapportClass);
+
     const formattedStartTime = formatDateTime(session.startTime);
     const formattedLastActivity = formatDateTime(session.lastActivity);
+
+    // Display both rapport score and level
+    const rapportScore = session.rapportScore || 0;
 
     card.innerHTML = `
         <div class="session-card-header">
             <h3>${session.characterName}</h3>
-            <span class="rapport-badge ${rapportClass}">${session.rapportLevel.toUpperCase()}</span>
+            <div class="rapport-score-badge ${session.rapportLevel}">
+                ${rapportScore} / 100
+            </div>
         </div>
         <div class="session-card-body">
             <div class="session-info">
                 <span class="info-label">Role:</span>
                 <span class="info-value">${session.characterRole}</span>
+            </div>
+            <div class="session-info">
+                <span class="info-label">Rapport Level:</span>
+                <span class="info-value">${session.rapportLevel.toUpperCase()}</span>
             </div>
             <div class="session-info">
                 <span class="info-label">Messages:</span>
@@ -160,7 +186,7 @@ function createSessionCard(session) {
         </div>
         <div class="session-card-footer">
             <button class="view-conversation-button" onclick="viewConversation('${session.sessionId}')">
-                View Conversation
+                View Full Details
             </button>
         </div>
     `;
@@ -182,17 +208,9 @@ function getRapportClass(rapportLevel) {
     }
 }
 
-// Format date and time
-function formatDateTime(isoString) {
-    const date = new Date(isoString);
-    return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
-}
+// ==============================================================================
+// CONVERSATION MODAL WITH RAPPORT VISUALIZATION
+// ==============================================================================
 
 // View conversation details
 async function viewConversation(sessionId) {
@@ -209,52 +227,253 @@ async function viewConversation(sessionId) {
     }
 }
 
-// Display conversation modal
+// Display conversation modal with comprehensive rapport visualization
 function displayConversationModal(session) {
-    // Set header info
+    // ========================================================================
+    // 1. Set Header Info
+    // ========================================================================
     document.getElementById('modalCharacterName').textContent = session.characterName;
     document.getElementById('modalSessionId').textContent = `Session: ${session.sessionId}`;
 
-    // Set details
+    // ========================================================================
+    // 2. Display Large Rapport Indicator
+    // ========================================================================
+    const currentScore = session.rapportScore || 0;
+    const currentLevel = session.rapportLevel || 'low';
+
+    // Update rapport level text
+    const rapportLevelText = document.getElementById('largeRapportLevel');
+    rapportLevelText.textContent = `${currentLevel.toUpperCase()} RAPPORT`;
+    rapportLevelText.style.color = getRapportColor(currentLevel);
+
+    // Update rapport score display
+    const rapportScoreDisplay = document.getElementById('largeRapportScore');
+    rapportScoreDisplay.textContent = currentScore;
+    rapportScoreDisplay.className = `rapport-score-display ${currentLevel}`;
+
+    // Update progress bar
+    const progressFill = document.getElementById('rapportProgressFill');
+    progressFill.style.width = `${currentScore}%`;
+    progressFill.textContent = `${currentScore}%`;
+    progressFill.className = `rapport-progress-fill ${currentLevel}`;
+
+    // Update description
+    const descriptions = {
+        low: 'Character is guarded, defensive, and reluctant to share. Trust has not been established. (0-40 points)',
+        medium: 'Character is beginning to open up and share surface-level concerns. Some trust is developing. (41-75 points)',
+        high: 'Character fully trusts the interviewer and will share critical information. (76-100 points)'
+    };
+    document.getElementById('rapportDescription').textContent = descriptions[currentLevel] || '';
+
+    // ========================================================================
+    // 3. Draw Rapport History Graph
+    // ========================================================================
+    drawRapportGraph(session.rapportHistory || []);
+
+    // ========================================================================
+    // 4. Set Session Details
+    // ========================================================================
     document.getElementById('modalCharacterRole').textContent = session.characterRole;
     document.getElementById('modalMessageCount').textContent = session.messageCount;
-
-    const rapportBadge = document.getElementById('modalRapportLevel');
-    rapportBadge.textContent = session.rapportLevel.toUpperCase();
-    rapportBadge.className = `rapport-badge ${getRapportClass(session.rapportLevel)}`;
-
     document.getElementById('modalStartTime').textContent = formatDateTime(session.startTime);
 
-    // Display conversation transcript
-    const transcript = document.getElementById('conversationTranscript');
-    transcript.innerHTML = '';
-
-    if (session.messages.length === 0) {
-        transcript.innerHTML = '<p class="no-messages">No messages yet</p>';
-    } else {
-        session.messages.forEach(msg => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `transcript-message ${msg.speaker === 'User' ? 'user-message' : 'character-message'}`;
-
-            messageDiv.innerHTML = `
-                <div class="message-header">
-                    <strong>${msg.speaker}</strong>
-                    <span class="message-time">${formatDateTime(msg.timestamp)}</span>
-                </div>
-                <div class="message-content">${escapeHtml(msg.content)}</div>
-            `;
-
-            transcript.appendChild(messageDiv);
-        });
-    }
+    // ========================================================================
+    // 5. Display Conversation Transcript with Rapport Changes
+    // ========================================================================
+    displayTranscriptWithRapport(session.messages || []);
 
     // Show modal
     document.getElementById('conversationModal').style.display = 'flex';
 }
 
+// Draw rapport history graph
+function drawRapportGraph(rapportHistory) {
+    const svg = document.getElementById('rapportGraphSVG');
+    const graphContainer = document.getElementById('rapportGraph');
+
+    // Clear existing content
+    svg.innerHTML = '';
+
+    if (!rapportHistory || rapportHistory.length === 0) {
+        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#9ca3af">No rapport history available</text>';
+        return;
+    }
+
+    const width = graphContainer.clientWidth - 32; // Account for padding
+    const height = graphContainer.clientHeight - 32;
+
+    // Calculate positions
+    const pointSpacing = width / Math.max(rapportHistory.length - 1, 1);
+
+    // Draw zone backgrounds
+    const zoneHeight = height;
+
+    // Low zone (0-33%)
+    const lowZone = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    lowZone.setAttribute('x', '16');
+    lowZone.setAttribute('y', height - (height * 0.33) + 16);
+    lowZone.setAttribute('width', width);
+    lowZone.setAttribute('height', height * 0.33);
+    lowZone.setAttribute('fill', '#fee2e2');
+    lowZone.setAttribute('opacity', '0.3');
+    svg.appendChild(lowZone);
+
+    // Medium zone (34-66%)
+    const medZone = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    medZone.setAttribute('x', '16');
+    medZone.setAttribute('y', height - (height * 0.66) + 16);
+    medZone.setAttribute('width', width);
+    medZone.setAttribute('height', height * 0.33);
+    medZone.setAttribute('fill', '#fef3c7');
+    medZone.setAttribute('opacity', '0.3');
+    svg.appendChild(medZone);
+
+    // High zone (67-100%)
+    const highZone = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    highZone.setAttribute('x', '16');
+    highZone.setAttribute('y', '16');
+    highZone.setAttribute('width', width);
+    highZone.setAttribute('height', height * 0.34);
+    highZone.setAttribute('fill', '#d1fae5');
+    highZone.setAttribute('opacity', '0.3');
+    svg.appendChild(highZone);
+
+    // Draw connecting line
+    if (rapportHistory.length > 1) {
+        const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        let points = '';
+
+        rapportHistory.forEach((entry, index) => {
+            const x = 16 + (index * pointSpacing);
+            const y = 16 + height - (entry.score / 100 * height);
+            points += `${x},${y} `;
+        });
+
+        polyline.setAttribute('points', points.trim());
+        polyline.setAttribute('fill', 'none');
+        polyline.setAttribute('stroke', '#6b7280');
+        polyline.setAttribute('stroke-width', '2');
+        svg.appendChild(polyline);
+    }
+
+    // Draw points
+    rapportHistory.forEach((entry, index) => {
+        const x = 16 + (index * pointSpacing);
+        const y = 16 + height - (entry.score / 100 * height);
+
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', y);
+        circle.setAttribute('r', '5');
+        circle.setAttribute('fill', getRapportColor(entry.level));
+        circle.setAttribute('stroke', 'white');
+        circle.setAttribute('stroke-width', '2');
+
+        // Add hover title
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = `Score: ${entry.score} (${entry.level})${entry.reasoning ? '\n' + entry.reasoning : ''}`;
+        circle.appendChild(title);
+
+        svg.appendChild(circle);
+    });
+}
+
+// Display transcript with rapport change indicators
+function displayTranscriptWithRapport(messages) {
+    const transcript = document.getElementById('conversationTranscript');
+    transcript.innerHTML = '';
+
+    if (messages.length === 0) {
+        transcript.innerHTML = '<p class="no-messages">No messages yet</p>';
+        return;
+    }
+
+    messages.forEach((msg, index) => {
+        const messageDiv = document.createElement('div');
+        const isUser = msg.speaker === 'User';
+
+        // Check if this is a significant rapport change (±8 or more)
+        const isSignificant = msg.rapportChange && Math.abs(msg.rapportChange) >= 8;
+
+        messageDiv.className = `transcript-message ${isUser ? 'user-message' : 'character-message'}`;
+        if (isUser && isSignificant) {
+            messageDiv.classList.add('significant-change');
+        }
+
+        let messageHTML = `
+            <div class="message-header">
+                <strong>${msg.speaker}</strong>
+                <span class="message-time">${formatDateTime(msg.timestamp)}</span>
+            </div>
+            <div class="message-content">${escapeHtml(msg.content)}</div>
+        `;
+
+        // Add rapport change indicator for user messages
+        if (isUser && msg.rapportChange !== undefined) {
+            const changeClass = msg.rapportChange > 0 ? 'positive' : (msg.rapportChange < 0 ? 'negative' : 'neutral');
+            const changeSymbol = msg.rapportChange > 0 ? '+' : '';
+
+            messageHTML += `
+                <div class="message-rapport-change">
+                    <div>
+                        <span class="rapport-change-value ${changeClass}">
+                            ${changeSymbol}${msg.rapportChange} points
+                        </span>
+                        <span style="color: #9ca3af;">→ Score: ${msg.rapportScoreAfter} (${msg.rapportLevelAfter})</span>
+                    </div>
+                    ${msg.rapportReasoning ? `
+                        <div class="rapport-change-reason">${escapeHtml(msg.rapportReasoning)}</div>
+                    ` : ''}
+                    ${msg.rapportChanges && msg.rapportChanges.length > 0 ? `
+                        <div class="rapport-change-techniques">
+                            ${msg.rapportChanges.map(change => {
+                                const techniqueClass = change.type === 'positive' ? 'positive' :
+                                                      change.type === 'negative' ? 'negative' : 'system';
+                                return `<span class="technique-tag ${techniqueClass}">${change.technique}: ${change.points > 0 ? '+' : ''}${change.points}</span>`;
+                            }).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        messageDiv.innerHTML = messageHTML;
+        transcript.appendChild(messageDiv);
+    });
+
+    // Scroll to top of transcript
+    transcript.scrollTop = 0;
+}
+
+// Get rapport color
+function getRapportColor(level) {
+    switch (level) {
+        case 'low': return '#dc2626';
+        case 'medium': return '#f59e0b';
+        case 'high': return '#10b981';
+        default: return '#6b7280';
+    }
+}
+
 // Close modal
 function closeModal() {
     document.getElementById('conversationModal').style.display = 'none';
+}
+
+// ==============================================================================
+// UTILITY FUNCTIONS
+// ==============================================================================
+
+// Format date and time
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 }
 
 // Update stats

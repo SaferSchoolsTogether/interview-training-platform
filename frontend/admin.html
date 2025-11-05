@@ -5,6 +5,255 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Interview Training Platform</title>
     <link rel="stylesheet" href="admin.css">
+    <style>
+        /* ===================================================================
+           RAPPORT VISUALIZATION STYLES
+           =================================================================== */
+
+        /* Rapport Score Badge */
+        .rapport-score-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .rapport-score-badge.low {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .rapport-score-badge.medium {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .rapport-score-badge.high {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Session Card Color Coding */
+        .session-card {
+            border-left: 4px solid #e5e7eb;
+            transition: all 0.3s;
+        }
+
+        .session-card.rapport-low {
+            border-left-color: #dc2626;
+            background-color: #fef2f2;
+        }
+
+        .session-card.rapport-medium {
+            border-left-color: #f59e0b;
+            background-color: #fffbeb;
+        }
+
+        .session-card.rapport-high {
+            border-left-color: #10b981;
+            background-color: #f0fdf4;
+        }
+
+        /* Large Rapport Indicator in Modal */
+        .rapport-indicator-large {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .rapport-score-display {
+            font-size: 48px;
+            font-weight: 700;
+            margin: 12px 0;
+        }
+
+        .rapport-score-display.low { color: #dc2626; }
+        .rapport-score-display.medium { color: #f59e0b; }
+        .rapport-score-display.high { color: #10b981; }
+
+        .rapport-level-text {
+            font-size: 18px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .rapport-description {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        /* Rapport History Timeline/Graph */
+        .rapport-history-section {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+
+        .rapport-history-section h3 {
+            margin: 0 0 20px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .rapport-graph {
+            height: 150px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            position: relative;
+            overflow-x: auto;
+        }
+
+        .rapport-graph-line {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            height: calc(100% - 32px);
+        }
+
+        .rapport-point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid white;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .rapport-point:hover {
+            transform: scale(1.5);
+        }
+
+        .rapport-point.low { background-color: #dc2626; }
+        .rapport-point.medium { background-color: #f59e0b; }
+        .rapport-point.high { background-color: #10b981; }
+
+        /* Message with Rapport Change Indicator */
+        .message-rapport-change {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .rapport-change-value {
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .rapport-change-value.positive { color: #10b981; }
+        .rapport-change-value.negative { color: #dc2626; }
+        .rapport-change-value.neutral { color: #6b7280; }
+
+        .rapport-change-reason {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .rapport-change-techniques {
+            margin-top: 6px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .technique-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .technique-tag.positive {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .technique-tag.negative {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .technique-tag.system {
+            background-color: #e0e7ff;
+            color: #3730a3;
+        }
+
+        /* Highlight significant rapport changes */
+        .message.user.significant-change {
+            border-left: 3px solid #3b82f6;
+            padding-left: 12px;
+        }
+
+        /* Progress bar for rapport score */
+        .rapport-progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 12px 0;
+            position: relative;
+        }
+
+        .rapport-progress-fill {
+            height: 100%;
+            transition: width 0.3s, background-color 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .rapport-progress-fill.low { background: linear-gradient(to right, #dc2626, #ef4444); }
+        .rapport-progress-fill.medium { background: linear-gradient(to right, #f59e0b, #fbbf24); }
+        .rapport-progress-fill.high { background: linear-gradient(to right, #10b981, #34d399); }
+
+        /* Zones overlay on progress bar */
+        .rapport-zones {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            pointer-events: none;
+        }
+
+        .rapport-zone {
+            flex: 1;
+            border-right: 1px dashed rgba(0,0,0,0.1);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 2px;
+            font-size: 9px;
+            color: rgba(0,0,0,0.3);
+            font-weight: 600;
+        }
+
+        .rapport-zone:last-child {
+            border-right: none;
+        }
+    </style>
 </head>
 <body>
     <!-- Login Screen -->
@@ -34,7 +283,7 @@
         <header class="dashboard-header">
             <div class="header-left">
                 <h1>Admin Dashboard</h1>
-                <span class="subtitle">Interview Monitoring System</span>
+                <span class="subtitle">Interview Monitoring System with MI-Based Rapport Tracking</span>
             </div>
             <div class="header-right">
                 <button class="refresh-button" id="refreshButton">
@@ -64,6 +313,12 @@
         <main class="dashboard-main">
             <div class="sessions-header">
                 <h2>Active Interview Sessions</h2>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 8px;">
+                    Color-coded by rapport level: <span style="color: #dc2626; font-weight: 600;">Red = Low (0-40)</span>,
+                    <span style="color: #f59e0b; font-weight: 600;">Yellow = Medium (41-75)</span>,
+                    <span style="color: #10b981; font-weight: 600;">Green = High (76-100)</span>
+                    • Trust builds slowly but breaks quickly
+                </p>
             </div>
             <div id="sessionsGrid" class="sessions-grid">
                 <!-- Session cards will be inserted here -->
@@ -77,7 +332,7 @@
 
     <!-- Conversation Modal -->
     <div id="conversationModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 1000px;">
             <div class="modal-header">
                 <div>
                     <h2 id="modalCharacterName">Character Name</h2>
@@ -86,6 +341,36 @@
                 <button class="close-modal" id="closeModal">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- Large Rapport Indicator -->
+                <div class="rapport-indicator-large">
+                    <div class="rapport-level-text" id="largeRapportLevel">LOADING...</div>
+                    <div class="rapport-score-display" id="largeRapportScore">--</div>
+                    <div class="rapport-progress-bar">
+                        <div class="rapport-progress-fill" id="rapportProgressFill" style="width: 0%">
+                            0%
+                        </div>
+                        <div class="rapport-zones">
+                            <div class="rapport-zone">LOW</div>
+                            <div class="rapport-zone">MED</div>
+                            <div class="rapport-zone">HIGH</div>
+                        </div>
+                    </div>
+                    <div class="rapport-description" id="rapportDescription">
+                        Rapport tracking based on Motivational Interviewing techniques
+                    </div>
+                </div>
+
+                <!-- Rapport History Timeline -->
+                <div class="rapport-history-section">
+                    <h3>Rapport History</h3>
+                    <div class="rapport-graph" id="rapportGraph">
+                        <svg id="rapportGraphSVG" width="100%" height="100%" style="position: absolute; top: 0; left: 0;">
+                            <!-- Graph will be drawn here -->
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Session Details -->
                 <div class="conversation-details">
                     <div class="detail-item">
                         <strong>Role:</strong>
@@ -96,16 +381,17 @@
                         <span id="modalMessageCount">0</span>
                     </div>
                     <div class="detail-item">
-                        <strong>Rapport Level:</strong>
-                        <span id="modalRapportLevel" class="rapport-badge">--</span>
-                    </div>
-                    <div class="detail-item">
                         <strong>Started:</strong>
                         <span id="modalStartTime">--</span>
                     </div>
                 </div>
-                <div class="conversation-transcript" id="conversationTranscript">
-                    <!-- Messages will be inserted here -->
+
+                <!-- Conversation Transcript with Rapport Changes -->
+                <div style="margin-top: 24px;">
+                    <h3 style="margin-bottom: 16px;">Conversation Transcript</h3>
+                    <div class="conversation-transcript" id="conversationTranscript">
+                        <!-- Messages with rapport changes will be inserted here -->
+                    </div>
                 </div>
             </div>
         </div>
