@@ -73,6 +73,7 @@ const MI_TECHNIQUES = {
     score: 3,
     patterns: [
       /\bso you'?re saying\b/i,
+      /\bi notice\b/i,
       /\bit sounds like\b/i,
       /\bwhat i'?m hearing is\b/i,
       /\byou feel\b/i,
@@ -93,7 +94,8 @@ const MI_TECHNIQUES = {
   summaries: {
     score: 4,
     patterns: [
-      /\blet me make sure i understand\b/i,
+      /\blet me make sure i\b/i,
+      /\bit sounds like\b/i,
       /\bso far you'?ve (mentioned|told me|said)\b/i,
       /\bputting (it|this) together\b/i,
       /\bfrom what you'?ve told me\b/i,
@@ -113,9 +115,11 @@ const MI_TECHNIQUES = {
     score: 3,
     patterns: [
       /\bi understand\b/i,
+      /\bwow!\b/i,
+      /\bthat sounds like a lot\b/i,
+      /\bsounds like you've been going through a lot\b/i,
       /\bthat must be\b/i,
       /\bi hear you\b/i,
-      /\bsounds (difficult|hard|tough|challenging)\b/i,
       /\bi'?m sorry\b/i,
       /\bthat'?s really hard\b/i,
       /\bcan'?t imagine\b/i,
@@ -133,10 +137,11 @@ const MI_TECHNIQUES = {
       /\b(that )?makes sense\b/i,
       /\bi can see why\b/i,
       /\bthat'?s understandable\b/i,
-      /\banyone would feel\b/i,
+      /\bsounds (difficult|hard|tough|challenging|complicated)\b/i,
+      /\bi bet you feel\b/i,
+      /\bi get it\b/i,
       /\byour feelings are valid\b/i,
       /\bit'?s (normal|natural|reasonable) to feel\b/i,
-      /\bof course you feel\b/i,
       /\byou have (every|a) right to feel\b/i,
       /\bmakes perfect sense\b/i
     ],
@@ -155,7 +160,11 @@ const MI_TECHNIQUES = {
       /\bi'?m here for you\b/i,
       /\bwe'?ll work on this together\b/i,
       /\bi'?d like to help\b/i,
-      /\byou don'?t have to (do this|go through this) alone\b/i
+      /\byou don'?t have to (do this|go through this) alone\b/i,
+      /\blet'?s navigate the next steps\b/i,
+      /\bwho else would you feel comfortable sharing with\b/i,
+      /\bwhat else can i do\b/i,
+      /\bwhat do you need\b/i
     ],
     label: "Support"
   },
@@ -172,7 +181,10 @@ const MI_TECHNIQUES = {
       /\bwhat (worries|concerns) you\b/i,
       /\bwhat holds you back\b/i,
       /\btorn between\b/i,
-      /\bmixed feelings\b/i
+      /\bmixed feelings\b/i,
+      /\bsounds confusing\.? help me understand\b/i,
+      /\btell me about your different feelings in connection to\b/i,
+      /\bwhat are the complications of\b/i
     ],
     label: "Exploring Ambivalence"
   }
@@ -196,7 +208,11 @@ const DAMAGING_APPROACHES = {
       /\bdon'?t (lie|bs|bullshit)\b/i,
       /\bstop (playing|messing)\b/i,
       /\bcut the crap\b/i,
-      /\benough (games|lies)\b/i
+      /\benough (games|lies)\b/i,
+      /\bif you don'?t .+,? i will\b/i,
+      /\bmaybe you will talk if we bring in\b/i,
+      /\bthat'?s not what .+ (said|told me|told us)\b/i,
+      /\b(this|you) need(s|has)? to stop\b/i
     ],
     label: "Aggressive/Confrontational"
   },
@@ -213,7 +229,9 @@ const DAMAGING_APPROACHES = {
       /\bthat'?s not important\b/i,
       /\bwho cares\b/i,
       /\bnot a big deal\b/i,
-      /\bnot my problem\b/i
+      /\bnot my problem\b/i,
+      /\bit seems like you'?re avoiding\b/i,
+      /\bstop wasting (our|my) time\b/i
     ],
     label: "Dismissive"
   },
@@ -267,7 +285,8 @@ const DAMAGING_APPROACHES = {
       /\byou'?ll get over it\b/i,
       /\bstop exaggerating\b/i,
       /\btoughen up\b/i,
-      /\bgrow up\b/i
+      /\bgrow up\b/i,
+      /\bthat'?s all\?/i
     ],
     label: "Minimizing"
   },
@@ -282,7 +301,11 @@ const DAMAGING_APPROACHES = {
       /\bjust (do|try)\b/i,
       /\bmy advice is\b/i,
       /\bif i were you\b/i,
-      /\bthe best thing (is|would be)\b/i
+      /\bthe best thing (is|would be)\b/i,
+      /\bwhat you need to do\b/i,
+      /\bit'?s obvious that you (need to|must)\b/i,
+      /\bobviously\b/i,
+      /\byou must\b/i
     ],
     label: "Unsolicited Advice"
   }
@@ -336,6 +359,22 @@ function containsProfanity(message) {
 }
 
 /**
+ * Counts how many times a character name appears in the message
+ * @param {string} message - The message to analyze
+ * @param {string} characterName - The character's name to look for
+ * @returns {number} Number of times the name appears
+ */
+function countCharacterNameUsage(message, characterName) {
+  if (!characterName || characterName.trim() === '') {
+    return 0;
+  }
+
+  const regex = new RegExp(`\\b${characterName}\\b`, 'gi');
+  const matches = message.match(regex);
+  return matches ? matches.length : 0;
+}
+
+/**
  * Checks if message is in all caps (yelling)
  * @param {string} message - The message to analyze
  * @returns {boolean}
@@ -357,9 +396,10 @@ function isAllCaps(message) {
  *
  * @param {string} message - The user's message to analyze
  * @param {number} currentScore - Current rapport score (0-100)
+ * @param {string} characterName - Optional character name to check for overuse
  * @returns {Object} Analysis result with new score, level, changes, and reasoning
  */
-function analyzeMessage(message, currentScore = 20) {
+function analyzeMessage(message, currentScore = 20, characterName = '') {
   const changes = [];
   let scoreChange = 0;
 
@@ -483,6 +523,20 @@ function analyzeMessage(message, currentScore = 20) {
       points: -4,
       description: 'Used profanity'
     });
+  }
+
+  // Excessive name usage (-1): Using character's name more than 2 times feels unnatural
+  if (characterName) {
+    const nameCount = countCharacterNameUsage(normalizedMessage, characterName);
+    if (nameCount > 2) {
+      scoreChange -= 1;
+      changes.push({
+        type: 'negative',
+        technique: 'Excessive Name Usage',
+        points: -1,
+        description: `Used character's name ${nameCount} times (feels unnatural when used more than twice)`
+      });
+    }
   }
 
   // ========================================================================
