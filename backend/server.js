@@ -39,9 +39,20 @@ const messageRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 30, // Limit each session to 30 messages per windowMs
   message: { success: false, error: 'Too many messages sent. Please wait before sending more messages.' },
-  keyGenerator: (req) => req.body.sessionId || req.ip, // Use sessionId if available, otherwise IP
+  // Use sessionId for rate limiting, fallback to default IP handling
+  keyGenerator: (req, res) => {
+    // If sessionId exists in body, use it for rate limiting
+    if (req.body && req.body.sessionId) {
+      return req.body.sessionId;
+    }
+    // Otherwise, use the default IP key generator (handles IPv6 properly)
+    return req.ip;
+  },
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip failed requests (don't count them against the limit)
+  skipFailedRequests: false,
+  skipSuccessfulRequests: false,
 });
 
 // Admin endpoints rate limiter: 50 requests per 15 minutes per IP
@@ -523,6 +534,16 @@ app.use((req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
+  console.log('========================================');
+  console.log('🚀 Interview Training Platform Started');
+  console.log('========================================');
   console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`Frontend available at http://localhost:${PORT}`);
+  console.log(`Environment: ${NODE_ENV}`);
+  console.log(`CORS Origin: ${process.env.FRONTEND_URL || 'http://localhost:3001'}`);
+  console.log('');
+  console.log('Endpoints:');
+  console.log(`  - Health Check: http://localhost:${PORT}/api/health`);
+  console.log(`  - Frontend: http://localhost:${PORT}/`);
+  console.log(`  - Admin: http://localhost:${PORT}/admin`);
+  console.log('========================================');
 });
