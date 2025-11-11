@@ -7,6 +7,7 @@
 // Global variables
 let isLoggedIn = false;
 let autoRefreshInterval = null;
+let currentSessionId = null; // Track the currently viewed session for delete operations
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -23,6 +24,12 @@ function setupEventListeners() {
 
     // Refresh button
     document.getElementById('refreshButton').addEventListener('click', fetchSessions);
+
+    // Clear all sessions button
+    document.getElementById('clearAllButton').addEventListener('click', handleClearAllSessions);
+
+    // Delete session button (in modal)
+    document.getElementById('deleteSessionButton').addEventListener('click', handleDeleteSession);
 
     // Close modal
     document.getElementById('closeModal').addEventListener('click', closeModal);
@@ -146,7 +153,8 @@ function createSessionCard(session) {
     card.classList.add(rapportClass);
 
     const formattedStartTime = formatDateTime(session.startTime);
-    const formattedLastActivity = formatDateTime(session.lastActivity);
+    const timeAgo = getTimeAgo(session.lastActivity); // Show "X minutes ago" format
+    const sessionDuration = getSessionDuration(session.startTime, session.lastActivity);
 
     // Display both rapport score and level
     const rapportScore = session.rapportScore || 0;
@@ -176,8 +184,12 @@ function createSessionCard(session) {
                 <span class="info-value">${formattedStartTime}</span>
             </div>
             <div class="session-info">
-                <span class="info-label">Last Activity:</span>
-                <span class="info-value">${formattedLastActivity}</span>
+                <span class="info-label">Last Active:</span>
+                <span class="info-value">${timeAgo}</span>
+            </div>
+            <div class="session-info">
+                <span class="info-label">Duration:</span>
+                <span class="info-value">${sessionDuration}</span>
             </div>
             <div class="session-info">
                 <span class="info-label">Session ID:</span>
@@ -229,6 +241,9 @@ async function viewConversation(sessionId) {
 
 // Display conversation modal with comprehensive rapport visualization
 function displayConversationModal(session) {
+    // Store current session ID for delete operations
+    currentSessionId = session.sessionId;
+
     // ========================================================================
     // 1. Set Header Info
     // ========================================================================
@@ -503,4 +518,121 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ==============================================================================
+// SESSION MANAGEMENT - DELETE OPERATIONS
+// ==============================================================================
+
+// Handle clear all sessions
+async function handleClearAllSessions() {
+    const confirmed = confirm('⚠️ WARNING: This will delete ALL active sessions.\n\nAre you absolutely sure you want to continue?');
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch('http://localhost:3001/api/admin/sessions', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`✓ Successfully deleted ${data.deletedCount} session(s)`);
+            fetchSessions(); // Refresh the session list
+        } else {
+            alert('✗ Failed to clear sessions: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error clearing sessions:', error);
+        alert('✗ Error: Could not connect to server');
+    }
+}
+
+// Handle delete single session
+async function handleDeleteSession() {
+    if (!currentSessionId) {
+        alert('✗ Error: No session selected');
+        return;
+    }
+
+    const confirmed = confirm('Are you sure you want to delete this session?\n\nThis action cannot be undone.');
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`http://localhost:3001/api/admin/session/${currentSessionId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(`✓ Session deleted successfully`);
+            closeModal(); // Close the modal
+            fetchSessions(); // Refresh the session list
+            currentSessionId = null; // Clear the current session ID
+        } else {
+            alert('✗ Failed to delete session: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        alert('✗ Error: Could not connect to server');
+    }
+}
+
+// ==============================================================================
+// TIME FORMATTING HELPERS
+// ==============================================================================
+
+// Get time ago string (e.g., "5 minutes ago", "2 hours ago")
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diffInSeconds = Math.floor((now - past) / 1000);
+
+    if (diffInSeconds < 60) {
+        return `${diffInSeconds} second${diffInSeconds !== 1 ? 's' : ''} ago`;
+    }
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+        return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    }
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+        return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    }
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+}
+
+// Get session duration (e.g., "5m 23s", "1h 15m")
+function getSessionDuration(startTime, endTime) {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const diffInSeconds = Math.floor((end - start) / 1000);
+
+    if (diffInSeconds < 60) {
+        return `${diffInSeconds}s`;
+    }
+
+    const minutes = Math.floor(diffInSeconds / 60);
+    const seconds = diffInSeconds % 60;
+
+    if (minutes < 60) {
+        return `${minutes}m ${seconds}s`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
 }

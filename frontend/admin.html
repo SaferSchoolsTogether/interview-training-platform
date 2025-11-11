@@ -289,6 +289,9 @@
                 <button class="refresh-button" id="refreshButton">
                     <span>Refresh</span>
                 </button>
+                <button class="clear-all-button" id="clearAllButton" style="background-color: #dc2626; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-right: 12px;">
+                    Clear All Sessions
+                </button>
                 <button class="logout-button" id="logoutButton">Logout</button>
             </div>
         </header>
@@ -338,7 +341,12 @@
                     <h2 id="modalCharacterName">Character Name</h2>
                     <span class="modal-subtitle" id="modalSessionId">Session ID</span>
                 </div>
-                <button class="close-modal" id="closeModal">&times;</button>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button class="delete-session-button" id="deleteSessionButton" style="background-color: #dc2626; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                        Delete Session
+                    </button>
+                    <button class="close-modal" id="closeModal">&times;</button>
+                </div>
             </div>
             <div class="modal-body">
                 <!-- Large Rapport Indicator -->

@@ -3,11 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const OpenAI = require('openai');
+const { randomUUID } = require('crypto'); // Secure session ID generation
+const rateLimit = require('express-rate-limit'); // Rate limiting for security
 const { getCharacterSystemMessage, getCharacterMetadata, getAllCharacters } = require('./characters');
 const { analyzeMessage, getInitialScore, getLevelDescription } = require('./rapportTracker');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -20,12 +23,98 @@ const conversationMemory = new Map();
 // Enhanced session storage for admin dashboard
 const sessions = new Map();
 
-// Middleware
-app.use(cors());
+// ==================== RATE LIMITING CONFIGURATION ====================
+// General API rate limiter: 100 requests per 15 minutes per IP
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: { success: false, error: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Message endpoint rate limiter: 30 requests per 10 minutes per session
+// This is applied per session ID to prevent abuse of the OpenAI API
+const messageRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 30, // Limit each session to 30 messages per windowMs
+  message: { success: false, error: 'Too many messages sent. Please wait before sending more messages.' },
+  keyGenerator: (req) => req.body.sessionId || req.ip, // Use sessionId if available, otherwise IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Admin endpoints rate limiter: 50 requests per 15 minutes per IP
+const adminRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // Limit each IP to 50 requests per windowMs
+  message: { success: false, error: 'Too many admin requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ==================== MIDDLEWARE ====================
+// CORS configuration - supports both development and production
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Apply general rate limiter to all /api routes except message and admin endpoints
+app.use('/api', (req, res, next) => {
+  // Skip general limiter for endpoints with specific limiters
+  if (req.path.startsWith('/admin') || req.path === '/send-message') {
+    return next();
+  }
+  generalApiLimiter(req, res, next);
+});
 
 // Serve static files from the frontend directory
 app.use(express.static(path.join(__dirname, '../frontend')));
+
+// ==================== SESSION CLEANUP FUNCTION ====================
+// Auto-delete sessions older than 24 hours to prevent memory leaks
+function cleanupOldSessions() {
+  const now = Date.now();
+  const twentyFourHoursInMs = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  let deletedCount = 0;
+
+  console.log('=== Running Session Cleanup ===');
+  console.log('Current sessions:', sessions.size);
+
+  // Iterate through all sessions and check age
+  for (const [sessionId, session] of sessions.entries()) {
+    const lastActivityTime = new Date(session.lastActivity).getTime();
+    const sessionAge = now - lastActivityTime;
+
+    // Delete if older than 24 hours
+    if (sessionAge > twentyFourHoursInMs) {
+      // Remove from both storage Maps
+      sessions.delete(sessionId);
+      conversationMemory.delete(sessionId);
+      deletedCount++;
+
+      console.log(`Deleted old session: ${sessionId}`);
+      console.log(`  Character: ${session.characterName}`);
+      console.log(`  Last activity: ${session.lastActivity}`);
+      console.log(`  Age: ${Math.round(sessionAge / (60 * 60 * 1000))} hours`);
+    }
+  }
+
+  console.log(`Cleanup complete. Deleted ${deletedCount} session(s).`);
+  console.log(`Remaining sessions: ${sessions.size}`);
+  console.log('==============================\n');
+}
+
+// Run cleanup every hour (3600000 ms)
+const CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+setInterval(cleanupOldSessions, CLEANUP_INTERVAL);
+console.log('Session cleanup scheduled to run every hour (24-hour retention)');
+
+// ==================== API ENDPOINTS ====================
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -33,8 +122,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start session endpoint
+// SECURITY: Server-side session ID generation using crypto.randomUUID()
 app.post('/api/start-session', (req, res) => {
-  const { characterName, characterRole, sessionId } = req.body;
+  const { characterName, characterRole } = req.body;
+
+  // Generate secure session ID server-side (no longer accepts client-provided sessionId)
+  const sessionId = randomUUID();
 
   const startTime = new Date().toISOString();
   const initialRapportScore = getInitialScore(); // Start at 20 (middle of low range)
@@ -49,7 +142,7 @@ app.post('/api/start-session', (req, res) => {
     messageCount: 0
   });
 
-  // Initialize enhanced session storage for admin dashboard
+  // Initialize enhanced session storage for admin dashboard with lastActivity tracking
   sessions.set(sessionId, {
     sessionId: sessionId,
     characterName: characterName,
@@ -59,7 +152,7 @@ app.post('/api/start-session', (req, res) => {
     rapportLevel: 'low',
     rapportHistory: [{ score: initialRapportScore, level: 'low', timestamp: startTime }],
     startTime: startTime,
-    lastActivity: startTime,
+    lastActivity: startTime, // Track last activity for session cleanup
     messageCount: 0
   });
 
@@ -76,11 +169,11 @@ app.post('/api/start-session', (req, res) => {
   // Get character metadata
   const characterMeta = getCharacterMetadata(characterName);
 
-  // Return success response with greeting
+  // Return success response with server-generated sessionId and greeting
   res.json({
     success: true,
     message: 'Session started',
-    sessionId: sessionId,
+    sessionId: sessionId, // Server-generated secure UUID
     greeting: characterMeta ? characterMeta.greeting : null,
     character: {
       name: characterName,
@@ -89,8 +182,8 @@ app.post('/api/start-session', (req, res) => {
   });
 });
 
-// Send message endpoint
-app.post('/api/send-message', async (req, res) => {
+// Send message endpoint with rate limiting (30 messages per 10 minutes per session)
+app.post('/api/send-message', messageRateLimiter, async (req, res) => {
   try {
     const { sessionId, characterName, message } = req.body;
 
@@ -271,8 +364,8 @@ app.post('/api/send-message', async (req, res) => {
 
 // ==================== ADMIN ENDPOINTS ====================
 
-// Admin login endpoint
-app.post('/api/admin/login', (req, res) => {
+// Admin login endpoint with rate limiting
+app.post('/api/admin/login', adminRateLimiter, (req, res) => {
   const { password } = req.body;
 
   if (password === process.env.ADMIN_PASSWORD) {
@@ -291,7 +384,7 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // Get all active sessions (ADMIN ONLY - includes rapport data)
-app.get('/api/admin/sessions', (req, res) => {
+app.get('/api/admin/sessions', adminRateLimiter, (req, res) => {
   try {
     // Convert sessions Map to array with metadata including rapport info
     const sessionList = Array.from(sessions.values()).map(session => ({
@@ -320,7 +413,7 @@ app.get('/api/admin/sessions', (req, res) => {
 });
 
 // Get full conversation for a specific session
-app.get('/api/admin/session/:sessionId', (req, res) => {
+app.get('/api/admin/session/:sessionId', adminRateLimiter, (req, res) => {
   try {
     const { sessionId } = req.params;
     const session = sessions.get(sessionId);
@@ -341,6 +434,74 @@ app.get('/api/admin/session/:sessionId', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch session details'
+    });
+  }
+});
+
+// Delete a specific session (ADMIN ONLY)
+app.delete('/api/admin/session/:sessionId', adminRateLimiter, (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    // Delete from both storage Maps
+    sessions.delete(sessionId);
+    conversationMemory.delete(sessionId);
+
+    console.log('=== Admin: Session Deleted ===');
+    console.log('Session ID:', sessionId);
+    console.log('Character:', session.characterName);
+    console.log('Message count:', session.messageCount);
+    console.log('==============================\n');
+
+    res.json({
+      success: true,
+      message: 'Session deleted successfully',
+      deletedSession: {
+        sessionId: sessionId,
+        characterName: session.characterName,
+        messageCount: session.messageCount
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting session:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete session'
+    });
+  }
+});
+
+// Delete all sessions (ADMIN ONLY)
+app.delete('/api/admin/sessions', adminRateLimiter, (req, res) => {
+  try {
+    const sessionCount = sessions.size;
+
+    // Clear both storage Maps
+    sessions.clear();
+    conversationMemory.clear();
+
+    console.log('=== Admin: All Sessions Cleared ===');
+    console.log('Deleted sessions:', sessionCount);
+    console.log('===================================\n');
+
+    res.json({
+      success: true,
+      message: 'All sessions cleared successfully',
+      deletedCount: sessionCount
+    });
+  } catch (error) {
+    console.error('Error clearing sessions:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear sessions'
     });
   }
 });
