@@ -259,7 +259,6 @@ const DAMAGING_APPROACHES = {
     score: -6,
     patterns: [
       /\banswer me\b/i,
-      /\bright now\b/i,
       /\bimmediately\b/i,
       /\bhurry up\b/i,
       /\btell me now\b/i,
