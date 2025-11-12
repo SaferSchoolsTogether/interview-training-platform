@@ -69,7 +69,8 @@ async function handleLogin(e) {
             isLoggedIn = true;
             showDashboard();
             fetchSessions();
-            startAutoRefresh();
+            // Auto-refresh disabled - use manual refresh button instead
+            // startAutoRefresh();
         } else {
             errorDiv.textContent = 'Incorrect password';
             errorDiv.style.display = 'block';
@@ -84,7 +85,8 @@ async function handleLogin(e) {
 // Handle logout
 function handleLogout() {
     isLoggedIn = false;
-    stopAutoRefresh();
+    // Auto-refresh disabled - no need to stop it
+    // stopAutoRefresh();
     showLogin();
     document.getElementById('password').value = '';
     document.getElementById('loginError').style.display = 'none';
