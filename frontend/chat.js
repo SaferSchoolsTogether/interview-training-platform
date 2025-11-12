@@ -29,14 +29,20 @@ async function initializeChat() {
     document.getElementById('characterName').textContent = characterName;
     document.getElementById('characterRole').textContent = characterRole;
 
-    // Check if greeting is stored in sessionStorage
-    const storedGreeting = sessionStorage.getItem('characterGreeting');
-    if (storedGreeting) {
-        // Display the character's greeting message
-        addCharacterMessage(storedGreeting);
-    } else {
-        // Fallback system message if no greeting available
-        addSystemMessage(`Interview session started with ${characterName}. You may begin asking questions.`);
+    // Load saved conversation from sessionStorage (if page was refreshed)
+    loadConversationFromStorage();
+
+    // If no saved messages, show the greeting
+    if (conversationHistory.length === 0) {
+        // Check if greeting is stored in sessionStorage
+        const storedGreeting = sessionStorage.getItem('characterGreeting');
+        if (storedGreeting) {
+            // Display the character's greeting message
+            addCharacterMessage(storedGreeting);
+        } else {
+            // Fallback system message if no greeting available
+            addSystemMessage(`Interview session started with ${characterName}. You may begin asking questions.`);
+        }
     }
 }
 
@@ -102,6 +108,9 @@ async function sendMessage() {
         content: message
     });
 
+    // Save to sessionStorage
+    saveConversationToStorage();
+
     // Show typing indicator
     showTypingIndicator();
     isWaitingForResponse = true;
@@ -135,6 +144,9 @@ async function sendMessage() {
                 role: 'character',
                 content: data.response
             });
+
+            // Save to sessionStorage
+            saveConversationToStorage();
         } else {
             addSystemMessage('Error: Failed to get response from character.');
         }
@@ -173,10 +185,14 @@ function addCharacterMessage(message) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message character';
 
+    // Get character image filename from character name
+    const imageFilename = characterName.toLowerCase().replace(/ /g, '-') + '.jpg';
+
     messageDiv.innerHTML = `
+        <img src="images/${imageFilename}" alt="${characterName}" class="message-avatar">
         <div class="message-bubble">
             <div class="message-sender">${characterName}</div>
-            <div class="message-text">${escapeHtml(message)}</div>
+            <div class="message-text">${formatMessage(message)}</div>
         </div>
     `;
 
@@ -209,7 +225,11 @@ function showTypingIndicator() {
     typingDiv.className = 'message character';
     typingDiv.id = 'typingIndicator';
 
+    // Get character image filename from character name
+    const imageFilename = characterName.toLowerCase().replace(/ /g, '-') + '.jpg';
+
     typingDiv.innerHTML = `
+        <img src="images/${imageFilename}" alt="${characterName}" class="message-avatar">
         <div class="message-bubble">
             <div class="typing-indicator">
                 <span></span>
@@ -255,4 +275,67 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Format message text: convert *text* to italics for character actions
+function formatMessage(text) {
+    // First escape HTML to prevent XSS
+    let formatted = escapeHtml(text);
+
+    // Convert text between asterisks to italic tags
+    // Match *text* patterns and replace with <em>text</em>
+    formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    return formatted;
+}
+
+// ========================================================================
+// SESSION STORAGE PERSISTENCE
+// ========================================================================
+
+// Save conversation to sessionStorage
+// This allows messages to persist across page refreshes
+function saveConversationToStorage() {
+    if (!sessionId) return;
+
+    // Use sessionId as key to prevent conflicts between different sessions
+    const storageKey = `chat_${sessionId}`;
+
+    try {
+        sessionStorage.setItem(storageKey, JSON.stringify(conversationHistory));
+    } catch (error) {
+        console.error('Error saving conversation to sessionStorage:', error);
+        // sessionStorage might be full or disabled
+    }
+}
+
+// Load conversation from sessionStorage
+// Called on page load to restore previous messages after refresh
+function loadConversationFromStorage() {
+    if (!sessionId) return;
+
+    const storageKey = `chat_${sessionId}`;
+
+    try {
+        const savedData = sessionStorage.getItem(storageKey);
+
+        if (savedData) {
+            conversationHistory = JSON.parse(savedData);
+
+            // Restore the UI by displaying all saved messages
+            conversationHistory.forEach((msg) => {
+                if (msg.role === 'user') {
+                    addUserMessage(msg.content);
+                } else if (msg.role === 'character') {
+                    addCharacterMessage(msg.content);
+                }
+            });
+
+            console.log(`Restored ${conversationHistory.length} messages from sessionStorage`);
+        }
+    } catch (error) {
+        console.error('Error loading conversation from sessionStorage:', error);
+        // If there's an error, just start fresh
+        conversationHistory = [];
+    }
 }
