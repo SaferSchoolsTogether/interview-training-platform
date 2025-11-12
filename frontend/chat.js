@@ -108,7 +108,7 @@ async function sendMessage() {
 
     try {
         // Send to backend
-        const response = await fetch('http://localhost:3001/api/send-message', {
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.SEND_MESSAGE, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

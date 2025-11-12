@@ -4,7 +4,7 @@ async function startInterview(characterName, characterRole) {
     try {
         // Call the backend API to start the session
         // Server will generate a secure session ID
-        const response = await fetch('http://localhost:3001/api/start-session', {
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.START_SESSION, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

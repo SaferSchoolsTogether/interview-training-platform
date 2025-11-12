@@ -55,7 +55,7 @@ async function handleLogin(e) {
     const errorDiv = document.getElementById('loginError');
 
     try {
-        const response = await fetch('http://localhost:3001/api/admin/login', {
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.ADMIN_LOGIN, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ async function fetchSessions() {
     if (!isLoggedIn) return;
 
     try {
-        const response = await fetch('http://localhost:3001/api/admin/sessions');
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.ADMIN_SESSIONS);
         const data = await response.json();
 
         if (data.success) {
@@ -227,7 +227,7 @@ function getRapportClass(rapportLevel) {
 // View conversation details
 async function viewConversation(sessionId) {
     try {
-        const response = await fetch(`http://localhost:3001/api/admin/session/${sessionId}`);
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.ADMIN_SESSION(sessionId));
         const data = await response.json();
 
         if (data.success) {
@@ -531,7 +531,7 @@ async function handleClearAllSessions() {
     if (!confirmed) return;
 
     try {
-        const response = await fetch('http://localhost:3001/api/admin/sessions', {
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.ADMIN_SESSIONS, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -564,7 +564,7 @@ async function handleDeleteSession() {
     if (!confirmed) return;
 
     try {
-        const response = await fetch(`http://localhost:3001/api/admin/session/${currentSessionId}`, {
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.ADMIN_SESSION(currentSessionId), {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
