@@ -25,6 +25,9 @@ function setupEventListeners() {
     // Refresh button
     document.getElementById('refreshButton').addEventListener('click', fetchSessions);
 
+    // Download report button
+    document.getElementById('downloadReportButton').addEventListener('click', downloadReport);
+
     // Clear all sessions button
     document.getElementById('clearAllButton').addEventListener('click', handleClearAllSessions);
 
@@ -637,4 +640,144 @@ function getSessionDuration(startTime, endTime) {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return `${hours}h ${remainingMinutes}m`;
+}
+
+// ==============================================================================
+// REPORT DOWNLOAD
+// ==============================================================================
+
+// Download session report
+async function downloadReport() {
+    if (!isLoggedIn) return;
+
+    try {
+        const response = await fetch(window.API_CONFIG.ENDPOINTS.ADMIN_REPORT);
+        const data = await response.json();
+
+        if (data.success) {
+            // Format the report as a readable text file
+            const reportText = formatReportAsText(data);
+
+            // Create blob and download
+            const blob = new Blob([reportText], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            a.download = `interview-sessions-report-${timestamp}.txt`;
+
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            console.log('Report downloaded successfully');
+        }
+    } catch (error) {
+        console.error('Error downloading report:', error);
+        alert('Failed to download report. Please try again.');
+    }
+}
+
+// Format report data as readable text
+function formatReportAsText(data) {
+    const lines = [];
+
+    // Header
+    lines.push('================================================================================');
+    lines.push('               INTERVIEW TRAINING PLATFORM - SESSION REPORT');
+    lines.push('================================================================================');
+    lines.push('');
+    lines.push(`Report Generated: ${new Date(data.generatedAt).toLocaleString()}`);
+    lines.push(`Total Sessions: ${data.totalSessions}`);
+    lines.push('');
+    lines.push('================================================================================');
+    lines.push('');
+
+    // If no sessions
+    if (data.sessions.length === 0) {
+        lines.push('No active sessions found.');
+        return lines.join('\n');
+    }
+
+    // Each session
+    data.sessions.forEach((session, index) => {
+        lines.push(`SESSION ${index + 1} OF ${data.totalSessions}`);
+        lines.push('================================================================================');
+        lines.push('');
+
+        // Session Info
+        lines.push('SESSION INFORMATION:');
+        lines.push(`  Session ID: ${session.sessionId}`);
+        lines.push(`  Character: ${session.character.name}`);
+        lines.push(`  Role: ${session.character.role}`);
+        lines.push('');
+
+        // Timing
+        lines.push('TIMING:');
+        lines.push(`  Started: ${new Date(session.timing.startTime).toLocaleString()}`);
+        lines.push(`  Last Active: ${new Date(session.timing.lastActivity).toLocaleString()}`);
+        lines.push(`  Duration: ${session.timing.duration}`);
+        lines.push('');
+
+        // Rapport Summary
+        lines.push('RAPPORT SUMMARY:');
+        lines.push(`  Final Score: ${session.rapport.finalScore} / 100`);
+        lines.push(`  Final Level: ${session.rapport.finalLevel.toUpperCase()}`);
+        lines.push(`  Total Messages: ${session.messageCount}`);
+        lines.push('');
+
+        // Rapport History
+        if (session.rapport.history && session.rapport.history.length > 0) {
+            lines.push('RAPPORT PROGRESSION:');
+            session.rapport.history.forEach((entry, idx) => {
+                const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+                const change = entry.scoreChange !== undefined ? ` (${entry.scoreChange >= 0 ? '+' : ''}${entry.scoreChange})` : '';
+                lines.push(`  [${timestamp}] Score: ${entry.score}${change} - ${entry.level.toUpperCase()}`);
+                if (entry.reasoning) {
+                    lines.push(`    Reason: ${entry.reasoning}`);
+                }
+            });
+            lines.push('');
+        }
+
+        // Conversation Transcript
+        lines.push('CONVERSATION TRANSCRIPT:');
+        lines.push('--------------------------------------------------------------------------------');
+
+        if (session.messages && session.messages.length > 0) {
+            session.messages.forEach((msg, msgIdx) => {
+                const timestamp = new Date(msg.timestamp).toLocaleTimeString();
+                lines.push('');
+                lines.push(`[${timestamp}] ${msg.speaker}:`);
+                lines.push(`  ${msg.content}`);
+
+                // Show rapport change for user messages
+                if (msg.speaker === 'User' && msg.rapportChange !== undefined) {
+                    const changeSymbol = msg.rapportChange > 0 ? '+' : '';
+                    lines.push(`  → Rapport Change: ${changeSymbol}${msg.rapportChange} (Score: ${msg.rapportScoreAfter}, Level: ${msg.rapportLevelAfter})`);
+
+                    if (msg.rapportReasoning) {
+                        lines.push(`  → Analysis: ${msg.rapportReasoning}`);
+                    }
+                }
+            });
+        } else {
+            lines.push('  No messages in this session.');
+        }
+
+        lines.push('');
+        lines.push('================================================================================');
+        lines.push('');
+        lines.push('');
+    });
+
+    // Footer
+    lines.push('');
+    lines.push('END OF REPORT');
+    lines.push('================================================================================');
+
+    return lines.join('\n');
 }

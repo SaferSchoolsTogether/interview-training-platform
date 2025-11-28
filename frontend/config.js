@@ -21,7 +21,8 @@ window.API_CONFIG = {
     SEND_MESSAGE: `${API_BASE_URL}/api/send-message`,
     ADMIN_LOGIN: `${API_BASE_URL}/api/admin/login`,
     ADMIN_SESSIONS: `${API_BASE_URL}/api/admin/sessions`,
-    ADMIN_SESSION: (sessionId) => `${API_BASE_URL}/api/admin/session/${sessionId}`
+    ADMIN_SESSION: (sessionId) => `${API_BASE_URL}/api/admin/session/${sessionId}`,
+    ADMIN_REPORT: `${API_BASE_URL}/api/admin/report`
   }
 };
 

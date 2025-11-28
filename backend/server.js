@@ -517,6 +517,79 @@ app.delete('/api/admin/sessions', adminRateLimiter, (req, res) => {
   }
 });
 
+// Download session report (ADMIN ONLY)
+app.get('/api/admin/report', adminRateLimiter, (req, res) => {
+  try {
+    const reportData = [];
+
+    // Convert sessions to array and sort by start time
+    const sessionList = Array.from(sessions.values()).sort((a, b) =>
+      new Date(a.startTime) - new Date(b.startTime)
+    );
+
+    sessionList.forEach(session => {
+      const sessionReport = {
+        sessionId: session.sessionId,
+        character: {
+          name: session.characterName,
+          role: session.characterRole
+        },
+        timing: {
+          startTime: session.startTime,
+          lastActivity: session.lastActivity,
+          duration: calculateDuration(session.startTime, session.lastActivity)
+        },
+        rapport: {
+          finalScore: session.rapportScore,
+          finalLevel: session.rapportLevel,
+          history: session.rapportHistory || []
+        },
+        messageCount: session.messageCount,
+        messages: session.messages || []
+      };
+
+      reportData.push(sessionReport);
+    });
+
+    console.log('=== Admin: Report Generated ===');
+    console.log('Sessions included:', reportData.length);
+    console.log('===============================\n');
+
+    res.json({
+      success: true,
+      generatedAt: new Date().toISOString(),
+      totalSessions: reportData.length,
+      sessions: reportData
+    });
+
+  } catch (error) {
+    console.error('Error generating report:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate report'
+    });
+  }
+});
+
+// Helper function to calculate session duration
+function calculateDuration(startTime, endTime) {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+  const diffInSeconds = Math.floor((end - start) / 1000);
+
+  const hours = Math.floor(diffInSeconds / 3600);
+  const minutes = Math.floor((diffInSeconds % 3600) / 60);
+  const seconds = diffInSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  } else {
+    return `${seconds}s`;
+  }
+}
+
 // Serve admin.html at /admin route
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend', 'admin.html'));

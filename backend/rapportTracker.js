@@ -5,11 +5,11 @@
  * based on evidence-based Motivational Interviewing techniques.
  *
  * Rapport Scale (Realistic Trust-Building):
- * - 0-40: Low rapport (guarded, defensive responses)
- * - 41-75: Medium rapport (opening up, some trust)
- * - 76-100: High rapport (full disclosure, trust established)
+ * - 0-30: Low rapport (guarded, defensive responses)
+ * - 31-60: Medium rapport (opening up, some trust)
+ * - 61+: High rapport (full disclosure, trust established, capped at 61)
  *
- * All sessions start at 20 (middle of low range) to reflect initial guardedness
+ * All sessions start at 20 (low range) to reflect initial guardedness
  *
  * Key Principle: Trust is gained slowly but lost quickly
  * - Maximum GAIN per message: +8 points (building trust takes time)
@@ -469,7 +469,7 @@ function analyzeMessage(message, currentScore = 20, characterName = '') {
       points: 1,
       description: 'Asked a question to encourage dialogue'
     });
-  } else if (questionCount > 1) {
+  } else if (questionCount > 3) {
     // Multiple questions feel interrogative (-1)
     scoreChange -= 1;
     changes.push({
@@ -574,11 +574,18 @@ function analyzeMessage(message, currentScore = 20, characterName = '') {
 
   // Determine rapport level (updated thresholds for realistic trust-building)
   let newLevel;
-  if (newScore <= 40) {
+  if (newScore <= 30) {
     newLevel = 'low';
-  } else if (newScore <= 75) {
+  } else if (newScore <= 60) {
     newLevel = 'medium';
   } else {
+    newLevel = 'high';
+  }
+
+  // Once max rapport level is reached (61+), hold at that threshold
+  // This prevents over-earning rapport while maintaining the level
+  if (newScore >= 61) {
+    newScore = 61;
     newLevel = 'high';
   }
 
@@ -621,7 +628,7 @@ function analyzeMessage(message, currentScore = 20, characterName = '') {
 
 /**
  * Gets the initial rapport score for a new session
- * @returns {number} Starting rapport score (20 - middle of low)
+ * @returns {number} Starting rapport score (20 - low range)
  */
 function getInitialScore() {
   return 20;
@@ -634,9 +641,9 @@ function getInitialScore() {
  */
 function getLevelDescription(level) {
   const descriptions = {
-    low: 'Character is guarded, defensive, and reluctant to share. Trust has not been established. (0-40 points)',
-    medium: 'Character is beginning to open up and share surface-level concerns. Some trust is developing. (41-75 points)',
-    high: 'Character fully trusts you and will share critical information, including sensitive details. (76-100 points)'
+    low: 'Character is guarded, defensive, and reluctant to share. Trust has not been established. (0-30 points)',
+    medium: 'Character is beginning to open up and share surface-level concerns. Some trust is developing. (31-60 points)',
+    high: 'Character fully trusts you and will share critical information, including sensitive details. (61+ points, capped at 61)'
   };
 
   return descriptions[level] || 'Unknown rapport level';
